@@ -98,226 +98,364 @@ class _TelaFeedState extends State<TelaFeed> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Feed da Comunidade',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF251742),
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Atualizar feed',
-            icon: const Icon(Icons.refresh, color: Color(0xFFA78BFA)),
-            onPressed: _carregarFeed,
+      backgroundColor: const Color(0xFF13072E), // Mesmo fundo das outras telas
+      body: Stack(
+        children: [
+          // Duas bolas decorativas no mesmo lugar do background
+          Positioned(
+            top: -50,
+            left: -60,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                color: const Color(0xFF682BD7).withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
-        ],
-      ),
-      body: _carregando
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF8B5CF6)))
-          : _atividades.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.public, size: 64, color: Color(0xFF4C3575)),
-                        SizedBox(height: 12),
-                        Text(
-                          'Nenhuma atividade pública ainda.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFFE2D9F3), fontSize: 16),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          'Ative a opção "Tarefa pública" ao criar uma tarefa para compartilhar suas metas aqui.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFFA78BFA), fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _carregarFeed,
-                  color: const Color(0xFF8B5CF6),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: _atividades.length,
-                    itemBuilder: (context, index) {
-                      final item = _atividades[index];
-                      final id = item['id'] as int;
-                      final concluida = item['concluida'] == true;
-                      final minutosFocados = (item['tempo_focado_minutos'] ?? 0) as int;
-                      final aplaudiu = _aplaudidos.contains(id);
+          Positioned(
+            top: 230,
+            right: -80,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                color: const Color(0xFF682BD7).withValues(alpha: 0.35),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
 
-                      return Card(
-                        color: const Color(0xFF251742),
-                        margin: const EdgeInsets.only(bottom: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(
-                            color: concluida
-                                ? const Color(0xFF10B981).withValues(alpha: 0.4)
-                                : const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+          SafeArea(
+            child: Column(
+              children: [
+                // Cabeçalho padronizado no estilo BeProud
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 40),
+                      Expanded(
+                        child: Center(
+                          child: RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: 'Feed da ',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                TextSpan(
+                                  text: 'Comunidade',
+                                  style: TextStyle(color: Color(0xFF9D6BFF)),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Cabeçalho com Avatar, Nome e Tempo
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor: const Color(0xFF8B5CF6),
-                                    child: Text(
-                                      (item['autor_nome'] as String)[0].toUpperCase(),
-                                      style: const TextStyle(
+                      ),
+                      GestureDetector(
+                        onTap: _carregarFeed,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF281154),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF9D6BFF).withValues(alpha: 0.55),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.refresh_rounded,
+                            color: Color(0xFFD8B4FE),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Text(
+                  'Acompanhe e apoie as conquistas dos seus amigos',
+                  style: TextStyle(color: Color(0xFFD8B4FE), fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+
+                // Conteúdo do Feed
+                Expanded(
+                  child: _carregando
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D6BFF)))
+                      : _atividades.isEmpty
+                          ? Center(
+                              child: Container(
+                                margin: const EdgeInsets.all(24),
+                                padding: const EdgeInsets.all(28),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1F0D42).withValues(alpha: 0.85),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: const Color(0xFF9D6BFF).withValues(alpha: 0.45),
+                                  ),
+                                ),
+                                child: const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.public_rounded, size: 56, color: Color(0xFF9D6BFF)),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Nenhuma atividade pública ainda.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
+                                    SizedBox(height: 6),
+                                    Text(
+                                      'Ative a opção "Tarefa pública" ao criar uma tarefa para compartilhar suas metas aqui.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Color(0xFFD8B4FE), fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _carregarFeed,
+                              color: const Color(0xFF9D6BFF),
+                              child: ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+                                itemCount: _atividades.length,
+                                itemBuilder: (context, index) {
+                                  final item = _atividades[index];
+                                  final id = item['id'] as int;
+                                  final concluida = item['concluida'] == true;
+                                  final minutosFocados = (item['tempo_focado_minutos'] ?? 0) as int;
+                                  final aplaudiu = _aplaudidos.contains(id);
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 14),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF281154).withValues(alpha: 0.9),
+                                      borderRadius: BorderRadius.circular(22),
+                                      border: Border.all(
+                                        color: concluida
+                                            ? const Color(0xFF10B981).withValues(alpha: 0.55)
+                                            : const Color(0xFF9D6BFF).withValues(alpha: 0.45),
+                                        width: 1.2,
+                                      ),
+                                    ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
+                                        // Cabeçalho com Avatar, Nome e Status
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 38,
+                                              height: 38,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: const Color(0xFF682BD7),
+                                                border: Border.all(
+                                                  color: const Color(0xFF9D6BFF),
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  (item['autor_nome'] as String)[0].toUpperCase(),
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    item['autor_nome'],
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14.5,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    _tempoRelativo(item['criada_em']?.toString()),
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFD8B4FE),
+                                                      fontSize: 11.5,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 11,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: concluida
+                                                    ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                                                    : const Color(0xFF682BD7).withValues(alpha: 0.45),
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: concluida
+                                                      ? const Color(0xFF34D399).withValues(alpha: 0.5)
+                                                      : const Color(0xFF9D6BFF).withValues(alpha: 0.5),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                concluida ? 'Concluída' : 'Em andamento',
+                                                style: TextStyle(
+                                                  color: concluida
+                                                      ? const Color(0xFF34D399)
+                                                      : const Color(0xFFE9D5FF),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+
+                                        // Título da tarefa compartilhada
                                         Text(
-                                          item['autor_nome'],
+                                          item['titulo'],
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        Text(
-                                          _tempoRelativo(item['criada_em']?.toString()),
-                                          style: const TextStyle(
-                                            color: Color(0xFFE2D9F3),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: concluida
-                                          ? const Color(0xFF10B981).withValues(alpha: 0.2)
-                                          : const Color(0xFF8B5CF6).withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      concluida ? 'Concluída' : 'Em andamento',
-                                      style: TextStyle(
-                                        color: concluida
-                                            ? const Color(0xFF10B981)
-                                            : const Color(0xFFA78BFA),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
+                                        const SizedBox(height: 12),
 
-                              // Título da tarefa compartilhada
-                              Text(
-                                item['titulo'],
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-
-                              // Tags e Botão de Apoio
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF160D28),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      item['categoria'] ?? 'Geral',
-                                      style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 12),
-                                    ),
-                                  ),
-                                  if (minutosFocados > 0) ...[
-                                    const SizedBox(width: 8),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.timer, size: 14, color: Color(0xFFF59E0B)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '$minutosFocados min focados',
-                                          style: const TextStyle(
-                                            color: Color(0xFFE2D9F3),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                  const Spacer(),
-                                  InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        if (aplaudiu) {
-                                          _aplaudidos.remove(id);
-                                        } else {
-                                          _aplaudidos.add(id);
-                                        }
-                                      });
-                                    },
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        color: aplaudiu
-                                            ? const Color(0xFF8B5CF6)
-                                            : const Color(0xFF160D28),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            aplaudiu ? Icons.favorite : Icons.favorite_border,
-                                            size: 15,
-                                            color: aplaudiu ? Colors.white : const Color(0xFFA78BFA),
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Text(
-                                            aplaudiu ? 'Apoiado!' : 'Apoiar',
-                                            style: TextStyle(
-                                              color: aplaudiu ? Colors.white : const Color(0xFFE2D9F3),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                        // Tags e Botão de Apoio em pílula
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF13072E),
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: const Color(0xFF9D6BFF).withValues(alpha: 0.35),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                item['categoria'] ?? 'Geral',
+                                                style: const TextStyle(
+                                                  color: Color(0xFFD8B4FE),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                            if (minutosFocados > 0) ...[
+                                              const SizedBox(width: 8),
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.timer_outlined,
+                                                    size: 14,
+                                                    color: Color(0xFFFACC15),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '$minutosFocados min',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFE2D9F3),
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                            const Spacer(),
+                                            GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (aplaudiu) {
+                                                    _aplaudidos.remove(id);
+                                                  } else {
+                                                    _aplaudidos.add(id);
+                                                  }
+                                                });
+                                              },
+                                              child: AnimatedContainer(
+                                                duration: const Duration(milliseconds: 200),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 14,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: aplaudiu
+                                                      ? const Color(0xFF7C3AED)
+                                                      : const Color(0xFF13072E),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                  border: Border.all(
+                                                    color: aplaudiu
+                                                        ? const Color(0xFFD8B4FE)
+                                                        : const Color(0xFF9D6BFF).withValues(alpha: 0.5),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      aplaudiu
+                                                          ? Icons.favorite_rounded
+                                                          : Icons.favorite_border_rounded,
+                                                      size: 15,
+                                                      color: aplaudiu
+                                                          ? Colors.white
+                                                          : const Color(0xFF9D6BFF),
+                                                    ),
+                                                    const SizedBox(width: 5),
+                                                    Text(
+                                                      aplaudiu ? 'Apoiado!' : 'Apoiar',
+                                                      style: TextStyle(
+                                                        color: aplaudiu
+                                                            ? Colors.white
+                                                            : const Color(0xFFE2D9F3),
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                            ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

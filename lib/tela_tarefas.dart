@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'modal_tarefa.dart';
 
@@ -12,21 +13,31 @@ class TelaTarefas extends StatefulWidget {
 class _TelaTarefasState extends State<TelaTarefas> {
   final _supabase = Supabase.instance.client;
   var _tarefas = [];
+  String _nomeUsuario = 'Usuário';
   bool _carregando = true;
   String _filtroCategoria = 'Todas';
 
-  final _categorias = ['Todas', 'Estudo', 'Trabalho', 'Pessoal', 'Saúde'];
+  final _categorias = ['Todas', 'Estudo', 'Trabalho', 'Pessoal', 'Saúde', 'Lazer'];
 
   @override
   void initState() {
     super.initState();
-    _carregarTarefas();
+    _carregarDados();
   }
 
-  Future<void> _carregarTarefas() async {
+  Future<void> _carregarDados() async {
     setState(() => _carregando = true);
     try {
       final userId = _supabase.auth.currentUser!.id;
+
+      // Busca o nome do usuário para a saudação "Olá, [Nome]!"
+      final perfil = await _supabase
+          .from('perfis')
+          .select('nome')
+          .eq('id', userId)
+          .maybeSingle();
+
+      // Busca as tarefas do usuário
       final dados = await _supabase
           .from('tarefas')
           .select()
@@ -35,7 +46,12 @@ class _TelaTarefasState extends State<TelaTarefas> {
           .order('criada_em', ascending: false);
 
       if (mounted) {
-        setState(() => _tarefas = dados);
+        setState(() {
+          if (perfil != null && perfil['nome'] != null) {
+            _nomeUsuario = perfil['nome'].toString().split(' ').first;
+          }
+          _tarefas = dados;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -55,7 +71,7 @@ class _TelaTarefasState extends State<TelaTarefas> {
       backgroundColor: Colors.transparent,
       builder: (_) => ModalTarefa(
         tarefaExistente: tarefa,
-        aoSalvar: _carregarTarefas,
+        aoSalvar: _carregarDados,
       ),
     );
   }
@@ -84,7 +100,7 @@ class _TelaTarefasState extends State<TelaTarefas> {
           .update({'xp_semanal': novoXp})
           .eq('id', userId);
 
-      await _carregarTarefas();
+      await _carregarDados();
 
       if (mounted && novoStatus) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -107,7 +123,7 @@ class _TelaTarefasState extends State<TelaTarefas> {
   Future<void> _excluirTarefa(int id) async {
     try {
       await _supabase.from('tarefas').delete().eq('id', id);
-      await _carregarTarefas();
+      await _carregarDados();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,17 +133,21 @@ class _TelaTarefasState extends State<TelaTarefas> {
     }
   }
 
-  Color _corPrioridade(String prioridade) {
-    if (prioridade == 'Alta') return const Color(0xFFEF4444);
-    if (prioridade == 'Média') return const Color(0xFFF59E0B);
-    return const Color(0xFF10B981);
-  }
-
-  String _formatarData(String? iso) {
-    if (iso == null) return '';
-    final dt = DateTime.tryParse(iso);
-    if (dt == null) return '';
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
+  // Cores das etiquetas de categoria iguais às da página 5 do Figma
+  Color _corCategoria(String categoria) {
+    switch (categoria.toLowerCase()) {
+      case 'estudo':
+        return const Color(0xFFBE185D); // Rosa/Vinho
+      case 'saúde':
+        return const Color.fromARGB(255, 25, 171, 61); // Roxo
+      case 'pessoal':
+        return const Color.fromARGB(255, 42, 23, 211); // Verde água
+      case 'trabalho':
+        return const Color(0xFFD97706); // Âmbar
+      case 'lazer':
+      default:
+        return const Color(0xFF4C1D95); // Roxo escuro
+    }
   }
 
   @override
@@ -136,189 +156,516 @@ class _TelaTarefasState extends State<TelaTarefas> {
         ? _tarefas
         : _tarefas.where((t) => t['categoria'] == _filtroCategoria).toList();
 
-    final pendentes = tarefasFiltradas.where((t) => t['concluida'] == false).length;
+    final totalTarefas = _tarefas.length;
+    final concluidas = _tarefas.where((t) => t['concluida'] == true).length;
+    final double progresso = totalTarefas == 0 ? 0.0 : concluidas / totalTarefas;
+    final int porcentagem = (progresso * 100).round();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Minhas Tarefas',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF251742),
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Atualizar lista',
-            icon: const Icon(Icons.refresh, color: Color(0xFFA78BFA)),
-            onPressed: _carregarTarefas,
-          ),
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: const Color(0xFF13072E), // Fundo roxo bem escuro do Figma
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text(
-              pendentes == 0
-                  ? 'Tudo em dia por aqui!'
-                  : 'Você tem $pendentes ${pendentes == 1 ? 'tarefa pendente' : 'tarefas pendentes'}',
-              style: const TextStyle(color: Color(0xFFE2D9F3), fontSize: 15),
+          // Formas circulares decorativas de fundo
+          Positioned(
+            top: -50,
+            left: -60,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                color: const Color(0xFF682BD7).withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-          SizedBox(
-            height: 48,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              itemCount: _categorias.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final cat = _categorias[index];
-                final selecionada = _filtroCategoria == cat;
-                return ChoiceChip(
-                  label: Text(cat),
-                  selected: selecionada,
-                  onSelected: (_) => setState(() => _filtroCategoria = cat),
-                  selectedColor: const Color(0xFF8B5CF6),
-                  backgroundColor: const Color(0xFF251742),
-                  labelStyle: TextStyle(
-                    color: selecionada ? Colors.white : const Color(0xFFE2D9F3),
-                    fontWeight: selecionada ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  side: BorderSide.none,
-                );
-              },
+          Positioned(
+            top: 230,
+            right: -80,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                color: const Color(0xFF682BD7).withValues(alpha: 0.35),
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _carregando
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF8B5CF6)))
-                : tarefasFiltradas.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.task_alt, size: 64, color: Color(0xFF4C3575)),
-                            SizedBox(height: 12),
-                            Text(
-                              'Nenhuma tarefa encontrada.',
-                              style: TextStyle(color: Color(0xFFE2D9F3), fontSize: 16),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Toque no botão + para adicionar uma.',
-                              style: TextStyle(color: Color(0xFFA78BFA), fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-                        itemCount: tarefasFiltradas.length,
-                        itemBuilder: (context, index) {
-                          final tarefa = tarefasFiltradas[index];
-                          final concluida = tarefa['concluida'] as bool;
-                          final corPrio = _corPrioridade(tarefa['prioridade'] ?? 'Baixa');
-                          final dataTexto = _formatarData(tarefa['prazo']?.toString());
 
-                          return Card(
-                            color: const Color(0xFF251742),
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              side: BorderSide(
-                                color: concluida ? Colors.transparent : corPrio.withValues(alpha: 0.4),
-                                width: 1,
-                              ),
-                            ),
-                            child: ListTile(
-                              onTap: () => _abrirModalTarefa(tarefa),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              leading: Checkbox(
-                                value: concluida,
-                                activeColor: const Color(0xFF8B5CF6),
-                                side: const BorderSide(color: Color(0xFFA78BFA), width: 2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                onChanged: (_) => _alternarConclusao(tarefa),
-                              ),
-                              title: Text(
-                                tarefa['titulo'],
-                                style: TextStyle(
-                                  color: concluida ? Colors.white54 : Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: concluida ? TextDecoration.lineThrough : null,
-                                ),
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF160D28),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        tarefa['categoria'],
-                                        style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 12),
-                                      ),
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(color: corPrio, shape: BoxShape.circle),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          tarefa['prioridade'],
-                                          style: TextStyle(color: corPrio, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                    if (dataTexto.isNotEmpty)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.event, size: 13, color: Color(0xFFE2D9F3)),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            dataTexto,
-                                            style: const TextStyle(color: Color(0xFFE2D9F3), fontSize: 12),
+          SafeArea(
+            child: _carregando
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF9D6BFF)))
+                : RefreshIndicator(
+                    onRefresh: _carregarDados,
+                    color: const Color(0xFF9D6BFF),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                            children: [
+                              // 1. Cabeçalho: Ícone + Logo BeProud + Avatar de Perfil
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const SizedBox(width: 42), // Equilibra o centro
+                                  Row(
+                                    children: [
+                                      Transform.rotate(
+                                        angle: -12 * math.pi / 180,
+                                        child: Container(
+                                          width: 34,
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF7C3AED),
+                                            borderRadius: BorderRadius.circular(9),
                                           ),
-                                        ],
+                                          child: const Icon(
+                                            Icons.check_rounded,
+                                            color: Color(0xFF13072E),
+                                            size: 22,
+                                          ),
+                                        ),
                                       ),
-                                    if (tarefa['publica'] == true)
-                                      const Icon(Icons.public, size: 14, color: Color(0xFFE2D9F3)),
-                                  ],
+                                      const SizedBox(width: 10),
+                                      RichText(
+                                        text: const TextSpan(
+                                          style: TextStyle(
+                                            fontSize: 26,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                          children: [
+                                            TextSpan(
+                                              text: 'Be',
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                            TextSpan(
+                                              text: 'Proud',
+                                              style: TextStyle(color: Color(0xFF9D6BFF)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFF9D6BFF),
+                                            width: 2.5,
+                                          ),
+                                          color: const Color(0xFF25124D),
+                                        ),
+                                        child: const Icon(
+                                          Icons.person,
+                                          color: Color(0xFF9D6BFF),
+                                          size: 26,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 1,
+                                        bottom: 1,
+                                        child: Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF22C55E),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+
+                              // 2. Saudação: "Olá, Hanry!"
+                              Center(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Olá, ',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      TextSpan(
+                                        text: '$_nomeUsuario!',
+                                        style: const TextStyle(color: Color(0xFF9D6BFF)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              trailing: IconButton(
-                                tooltip: 'Excluir tarefa',
-                                icon: const Icon(Icons.delete_outline, color: Colors.white54),
-                                onPressed: () => _excluirTarefa(tarefa['id']),
+                              const SizedBox(height: 18),
+
+                              // 3. Cartão de Progresso (67% + Barra horizontal)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF281154).withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(26),
+                                  border: Border.all(
+                                    color: const Color(0xFF9D6BFF).withValues(alpha: 0.45),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: IntrinsicHeight(
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 68,
+                                        height: 68,
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            SizedBox(
+                                              width: 68,
+                                              height: 68,
+                                              child: CircularProgressIndicator(
+                                                value: progresso,
+                                                strokeWidth: 7,
+                                                backgroundColor: const Color(0xFF3E1E7A),
+                                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                                  Color(0xFF8B5CF6),
+                                                ),
+                                                strokeCap: StrokeCap.round,
+                                              ),
+                                            ),
+                                            Text(
+                                              '$porcentagem%',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const VerticalDivider(
+                                        color: Color(0xFF7C3AED),
+                                        thickness: 1,
+                                        width: 28,
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '$concluidas de $totalTarefas tarefas concluídas hoje',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(10),
+                                              child: LinearProgressIndicator(
+                                                value: progresso,
+                                                minHeight: 10,
+                                                backgroundColor: const Color(0xFF682BD7),
+                                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                                  Color(0xFFD8B4FE),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                              const SizedBox(height: 20),
+
+                              // 4. Linha "Suas tarefas" + Botão de filtro arredondado à direita
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_month_outlined,
+                                    color: Color(0xFF9D6BFF),
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Suas tarefas',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF281154),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFF9D6BFF).withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<String>(
+                                        value: _filtroCategoria,
+                                        isDense: true,
+                                        dropdownColor: const Color(0xFF281154),
+                                        icon: const Icon(
+                                          Icons.arrow_downward_rounded,
+                                          color: Color(0xFF9D6BFF),
+                                          size: 16,
+                                        ),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                        ),
+                                        items: _categorias
+                                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                            .toList(),
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setState(() => _filtroCategoria = val);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+
+                              // 5. Lista de Tarefas estilo pílula do Figma
+                              if (tarefasFiltradas.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 32),
+                                  child: Center(
+                                    child: Text(
+                                      'Nenhuma tarefa por aqui.\nToque no + abaixo para criar!',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Color(0xFFD8B4FE), fontSize: 15),
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...tarefasFiltradas.map((tarefa) {
+                                  final concluida = tarefa['concluida'] == true;
+                                  final categoria = (tarefa['categoria'] ?? 'Geral').toString();
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1F0D42).withValues(alpha: 0.85),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: const Color(0xFF9D6BFF).withValues(alpha: 0.55),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () => _abrirModalTarefa(tarefa),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            // Checkbox roxo arredondado
+                                            GestureDetector(
+                                              onTap: () => _alternarConclusao(tarefa),
+                                              child: Container(
+                                                width: 26,
+                                                height: 26,
+                                                decoration: BoxDecoration(
+                                                  color: concluida
+                                                      ? const Color(0xFF7C3AED)
+                                                      : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(7),
+                                                  border: Border.all(
+                                                    color: const Color(0xFF7C3AED),
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: concluida
+                                                    ? const Icon(
+                                                        Icons.check_rounded,
+                                                        size: 18,
+                                                        color: Color(0xFF13072E),
+                                                      )
+                                                    : null,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+
+                                            // Título da tarefa
+                                            Expanded(
+                                              child: Text(
+                                                tarefa['titulo'],
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: concluida
+                                                      ? const Color(0xFF9D6BFF).withValues(alpha: 0.65)
+                                                      : Colors.white,
+                                                  fontSize: 15.5,
+                                                  decoration: concluida
+                                                      ? TextDecoration.lineThrough
+                                                      : null,
+                                                  decorationColor: const Color(0xFF9D6BFF),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+
+                                            // Etiqueta de categoria (Estudos, Lazer, Saúde...)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _corCategoria(categoria),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                categoria,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+
+                                            // Menu de opções (...) para editar ou excluir
+                                            PopupMenuButton<String>(
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(
+                                                Icons.more_horiz,
+                                                color: Colors.white70,
+                                                size: 20,
+                                              ),
+                                              color: const Color(0xFF281154),
+                                              onSelected: (opcao) {
+                                                if (opcao == 'editar') {
+                                                  _abrirModalTarefa(tarefa);
+                                                } else if (opcao == 'excluir') {
+                                                  _excluirTarefa(tarefa['id']);
+                                                }
+                                              },
+                                              itemBuilder: (context) => const [
+                                                PopupMenuItem(
+                                                  value: 'editar',
+                                                  child: Text(
+                                                    'Editar',
+                                                    style: TextStyle(color: Colors.white),
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'excluir',
+                                                  child: Text(
+                                                    'Excluir',
+                                                    style: TextStyle(color: Colors.redAccent),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                            ],
+                          ),
+                        ),
+
+                        // 6. Rodapé fixo: Banner do Troféu + Botão circular (+)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF682BD7),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.emoji_events_rounded,
+                                        color: Color(0xFFFACC15),
+                                        size: 32,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Sua produtividade hoje está incrível!',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              porcentagem >= 50
+                                                  ? 'Você está no top 20% dos usuários.'
+                                                  : 'Conclua tarefas para subir no ranking!',
+                                              style: const TextStyle(
+                                                color: Color(0xFFE9D5FF),
+                                                fontSize: 10.5,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              GestureDetector(
+                                onTap: () => _abrirModalTarefa(),
+                                child: Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF682BD7),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_rounded,
+                                    color: Color(0xFF13072E),
+                                    size: 34,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _abrirModalTarefa(),
-        backgroundColor: const Color(0xFF8B5CF6),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Tarefa', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
