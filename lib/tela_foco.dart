@@ -1,4 +1,5 @@
 ﻿import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -147,167 +148,356 @@ class _TelaFocoState extends State<TelaFoco> {
     final progresso = totalSegundos > 0 ? _segundosRestantes / totalSegundos : 0.0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Modo Foco',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF251742),
-        elevation: 0,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Seletor de Tarefa alvo
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF251742),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: _tarefasPendentes.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            'Foco livre (nenhuma tarefa pendente)',
-                            style: TextStyle(color: Color(0xFFE2D9F3)),
-                          ),
-                        )
-                      : DropdownButtonHideUnderline(
-                          child: DropdownButton<dynamic>(
-                            value: _tarefaSelecionada,
-                            isExpanded: true,
-                            dropdownColor: const Color(0xFF251742),
-                            icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFA78BFA)),
-                            style: const TextStyle(color: Colors.white, fontSize: 15),
-                            items: _tarefasPendentes.map((t) {
-                              return DropdownMenuItem<dynamic>(
-                                value: t,
-                                child: Text(
-                                  'Focar em: ${t['titulo']}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: _rodando
-                                ? null
-                                : (nova) => setState(() => _tarefaSelecionada = nova),
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 36),
-
-                // Círculo do Cronômetro
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      height: 240,
-                      child: CircularProgressIndicator(
-                        value: progresso,
-                        strokeWidth: 12,
-                        backgroundColor: const Color(0xFF251742),
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        Text(
-                          _formatarRelogio(_segundosRestantes),
-                          style: const TextStyle(
-                            fontSize: 52,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _rodando ? 'Mantenha o foco!' : 'Pronto para começar',
-                          style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-
-                // Botões de duração rápida
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [15, 25, 45].map((min) {
-                    final ativo = _minutosEscolhidos == min;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: ChoiceChip(
-                        label: Text('$min min'),
-                        selected: ativo,
-                        onSelected: (_) => _definirTempo(min),
-                        selectedColor: const Color(0xFF8B5CF6),
-                        backgroundColor: const Color(0xFF251742),
-                        labelStyle: TextStyle(
-                          color: ativo ? Colors.white : const Color(0xFFE2D9F3),
-                          fontWeight: FontWeight.bold,
-                        ),
-                        side: BorderSide.none,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 32),
-
-                // Controles Iniciar / Pausar e Resetar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _alternarTimer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _rodando ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      icon: Icon(_rodando ? Icons.pause : Icons.play_arrow, size: 26),
-                      label: Text(
-                        _rodando ? 'Pausar' : 'Iniciar Foco',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      tooltip: 'Reiniciar tempo',
-                      onPressed: _resetarTimer,
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF251742),
-                        padding: const EdgeInsets.all(14),
-                      ),
-                      icon: const Icon(Icons.refresh, color: Color(0xFFE2D9F3)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Botão para concluir sessão antecipadamente e resgatar XP
-                TextButton.icon(
-                  onPressed: _finalizarSessaoFoco,
-                  icon: const Icon(Icons.check_circle_outline, color: Color(0xFF10B981)),
-                  label: const Text(
-                    'Concluir sessão agora (+25 XP)',
-                    style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
+      backgroundColor: const Color(0xFF13072E), // Mesmo fundo da página inicial
+      body: Stack(
+        children: [
+          // As duas bolas decorativas exatamente nas mesmas posições da tela inicial
+          Positioned(
+            top: -50,
+            left: -60,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                color: const Color(0xFF682BD7).withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-        ),
+          Positioned(
+            top: 230,
+            right: -80,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                color: const Color(0xFF682BD7).withValues(alpha: 0.35),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      
+                      // Título da seção no estilo do Figma
+                      RichText(
+                        text: const TextSpan(
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Modo ',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            TextSpan(
+                              text: 'Foco',
+                              style: TextStyle(color: Color(0xFF9D6BFF)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 22),
+
+                      // 2. Seletor de Tarefa alvo estilizado
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF281154).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: const Color(0xFF9D6BFF).withValues(alpha: 0.55),
+                            width: 1,
+                          ),
+                        ),
+                        child: _tarefasPendentes.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.bolt_rounded, color: Color(0xFF9D6BFF), size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Foco livre (nenhuma tarefa pendente)',
+                                      style: TextStyle(color: Color(0xFFE2D9F3), fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : DropdownButtonHideUnderline(
+                                child: DropdownButton<dynamic>(
+                                  value: _tarefaSelecionada,
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF281154),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: Color(0xFF9D6BFF),
+                                  ),
+                                  style: const TextStyle(color: Colors.white, fontSize: 14.5),
+                                  items: _tarefasPendentes.map((t) {
+                                    return DropdownMenuItem<dynamic>(
+                                      value: t,
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.track_changes_rounded,
+                                            color: Color(0xFF9D6BFF),
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              t['titulo'],
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: _rodando
+                                      ? null
+                                      : (nova) => setState(() => _tarefaSelecionada = nova),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 30),
+
+                      // 3. Círculo do Cronômetro com brilho e bordas suaves
+                      Container(
+                        width: 256,
+                        height: 256,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF1F0D42).withValues(alpha: 0.8),
+                          border: Border.all(
+                            color: const Color(0xFF9D6BFF).withValues(alpha: 0.25),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (_rodando
+                                      ? const Color(0xFF8B5CF6)
+                                      : const Color(0xFF682BD7))
+                                  .withValues(alpha: _rodando ? 0.35 : 0.18),
+                              blurRadius: 28,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 226,
+                              height: 226,
+                              child: CircularProgressIndicator(
+                                value: progresso,
+                                strokeWidth: 11,
+                                strokeCap: StrokeCap.round,
+                                backgroundColor: const Color(0xFF3E1E7A),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  _rodando
+                                      ? const Color(0xFFA78BFA)
+                                      : const Color(0xFF8B5CF6),
+                                ),
+                              ),
+                            ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _rodando
+                                      ? Icons.local_fire_department_rounded
+                                      : Icons.timer_outlined,
+                                  color: _rodando
+                                      ? const Color(0xFFFACC15)
+                                      : const Color(0xFF9D6BFF),
+                                  size: 26,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatarRelogio(_segundosRestantes),
+                                  style: const TextStyle(
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _rodando ? 'Mantenha o foco!' : 'Pronto para começar',
+                                  style: const TextStyle(
+                                    color: Color(0xFFD8B4FE),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // 4. Botões de duração rápida em estilo pílula
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [15, 25, 45].map((min) {
+                          final ativo = _minutosEscolhidos == min;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: GestureDetector(
+                              onTap: () => _definirTempo(min),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ativo
+                                      ? const Color(0xFF7C3AED)
+                                      : const Color(0xFF281154).withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: ativo
+                                        ? const Color(0xFFD8B4FE)
+                                        : const Color(0xFF9D6BFF).withValues(alpha: 0.45),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Text(
+                                  '$min min',
+                                  style: TextStyle(
+                                    color: ativo ? Colors.white : const Color(0xFFD8B4FE),
+                                    fontWeight: ativo ? FontWeight.bold : FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // 5. Controles Iniciar / Pausar e Resetar
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _alternarTimer,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _rodando
+                                  ? const Color(0xFFF59E0B)
+                                  : const Color(0xFF682BD7),
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 30,
+                                vertical: 15,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                                side: BorderSide(
+                                  color: _rodando
+                                      ? const Color(0xFFFDE68A)
+                                      : const Color(0xFF9D6BFF),
+                                  width: 1.2,
+                                ),
+                              ),
+                            ),
+                            icon: Icon(
+                              _rodando ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              size: 26,
+                            ),
+                            label: Text(
+                              _rodando ? 'Pausar' : 'Iniciar Foco',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          GestureDetector(
+                            onTap: _resetarTimer,
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF281154),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF9D6BFF).withValues(alpha: 0.55),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.refresh_rounded,
+                                color: Color(0xFFD8B4FE),
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 6. Cartão / Botão sutil para concluir sessão antecipadamente
+                      InkWell(
+                        onTap: _finalizarSessaoFoco,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.45),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline_rounded,
+                                color: Color(0xFF34D399),
+                                size: 19,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Concluir sessão agora (+25 XP)',
+                                style: TextStyle(
+                                  color: Color(0xFF34D399),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
+} 
